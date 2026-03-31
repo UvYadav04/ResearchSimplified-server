@@ -1,0 +1,6 @@
+pymupdf
+itsdangerous
+python-multipart
+fastapi
+uvicorn
+pyjWT
