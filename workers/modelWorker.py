@@ -2,12 +2,10 @@ import asyncio
 from Model.model import Model
 
 
-async def model_worker(queue: asyncio.queue, model: Model):
+async def model_worker(input_q: asyncio.Queue, output_q: asyncio.Queue, model: Model):
     while True:
-        top = await queue.get()
-        if top["type"] == "end":
-            queue.task_done()
-        elif top["type"] == "text":
-            res = await model.generate(top["tokens"])
-        elif top["type"] == "image":
-            res = await model.generate(top["image"])
+        top = await input_q.get()
+        generator = model.stream_generate(top)
+        for token in generator:
+            await output_q.put(token)
+        input_q.task_done()
