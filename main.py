@@ -21,7 +21,7 @@ async def lifespan(app: FastAPI):
     print("Server shutting down...")
 
 
-origins_allowed = ["http://localhost:5173"]
+origins_allowed = ["http://localhost:5173","http://localhost:5174"]
 
 origins = origins_allowed
 

@@ -4,14 +4,17 @@ from .noise import is_noise
 import asyncio
 class PDFParser:
     def __init__(self, file_stream):
-        self.doc = fitz.open(stream=file_stream.read(), filetype="pdf")
+        self.doc = fitz.open(stream=file_stream, filetype="pdf")
 
         self.buffer = None
         self.batch = []
         self.token_count = 0
 
     def stream(self):
+        i = 0
         for page in self.doc:
+            if i>4:
+                break
             blocks = page.get_text("dict")["blocks"]
 
             for block in blocks:

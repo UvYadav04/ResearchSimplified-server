@@ -5,6 +5,6 @@ async def stream_output(output_q):
         result = await output_q.get()
         if not result or result is None:
             continue
-        print(result,end="",flush=True)
-        yield json.dumps(result)
+        # print(result)
+        yield json.dumps(result) + "<END>"
         output_q.task_done()

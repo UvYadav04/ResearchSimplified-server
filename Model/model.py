@@ -8,7 +8,7 @@ from huggingface_hub import InferenceClient
 
 import torch
 import threading
-
+from openai import OpenAI
 import os
 
 
@@ -19,9 +19,13 @@ class Model:
 
         self.model = None
         self.tokenizer = None
-        self.client =  InferenceClient(
+        self.client = InferenceClient(
             model=model_name, token=os.environ.get("HF_TOKEN")
         )
+        # self.client = OpenAI(
+        #     api_key=os.environ.get("GROQ_API_KEY"),
+        #     base_url="https://api.groq.com/openai/v1",
+        # )
 
     def initialize_model(self):
         # MODEL_PATH = f"Server/Model/local"
@@ -54,7 +58,23 @@ class Model:
             self.tokenizer.pad_token = self.tokenizer.eos_token
         return self.tokenizer
 
-    def format_instruction(self, message: str):
+
+    def format_instruction(self, message: str, lastContent: str = ""):
+        user_content = message
+
+        if lastContent != "":
+            user_content = f"""
+                    Previous context:
+                    {lastContent}
+
+                    Current content:
+                    {message}
+
+                    Instructions:
+                    - If relevant, connect the current content with the previous context.
+                    - Otherwise, ignore previous context.
+            """
+
         return [
             {
                 "role": "system",
@@ -62,29 +82,25 @@ class Model:
                     "You are an expert at simplifying complex research content for beginners. "
                     "Your goal is to make the explanation easy to understand for a normal user "
                     "with no technical background.\n\n"
-
                     "Follow this structure strictly:\n\n"
-
                     "1. Simplified Explanation:\n"
                     "- Explain the idea in very simple language.\n"
                     "- Use analogies or real-life examples when possible.\n"
                     "- Avoid jargon. If needed, explain it in simple words.\n\n"
-
                     "2. Key Points:\n"
                     "- Provide 3–6 bullet points.\n"
                     "- Keep them short and clear.\n\n"
-
                     "3. Why It Matters:\n"
                     "- Briefly explain why this concept is useful or important in real life.\n\n"
-
                     "Rules:\n"
                     "- Do NOT copy sentences from the input.\n"
                     "- Do NOT use complex words unnecessarily.\n"
                     "- Keep it concise but clear.\n"
-                    "- If the input is already simple, still format it in this structure.\n"
+                    "- If the input is already simple or irrelevant, return the same input.\n"
+                    "- Always format output in clean Markdown.\n"
                 ),
             },
-            {"role": "user", "content": message},
+            {"role": "user", "content": user_content},
         ]
 
     def apply_template(self, message: str):
@@ -99,7 +115,7 @@ class Model:
             add_generation_prompt=True,
         ).to(self.device)
 
-    def model_generate(self, message):
+    async def model_generate(self, message):
         try:
             response = self.client.chat.completions.create(
                 messages=self.format_instruction(message),
@@ -107,13 +123,15 @@ class Model:
                 max_tokens=512,
             )
 
-            return response.choices[0].message.content
+            result = response.choices[0].message.content
+
+            return result
 
         except Exception as e:
             print("FULL ERROR:", repr(e))
             return None  # ✅ consistent
 
-    def stream_generate(self, inputs: str):
+    def stream_generate(self, inputs, lastContent):
         # model = self.get_model()
         # tokenizer = self.get_tokenizer()
 
@@ -135,16 +153,19 @@ class Model:
         type = inputs["type"]
 
         try:
+            if not "content" in inputs:
+                return None
             content = inputs["content"]
             stream = self.client.chat.completions.create(
-                messages=self.format_instruction(content),
+                messages=self.format_instruction(content, lastContent),
+                model="openai/gpt-oss-20b",
                 stream=True,
-                max_tokens=512
+                max_tokens=512,
             )
             return stream
 
         except Exception as e:
             print("FULL ERROR:", repr(e))
             return None
+
     # elif type == "image":
-        

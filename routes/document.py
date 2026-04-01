@@ -13,14 +13,12 @@ BATCH_TOKEN_LIMIT = 3000
 
 
 @router.post("/documents/upload-paper")
-# async def uploadPaper(file: UploadFile = File(...)):
-async def uploadPaper():
+async def uploadPaper(file: UploadFile = File(...)):
     try:
+        file_bytes = await file.read()
         input_q = asyncio.Queue()
         output_q = asyncio.Queue()
-        pdf_path = "routes/2010.11929v2.pdf"
-        with open(pdf_path, "rb") as file2:
-            parser = PDFParser(file2)
+        parser = PDFParser(file_bytes)
         # model = Model("Qwen/Qwen2.5-1.5B-Instruct")
         model = Model("meta-llama/Meta-Llama-3-8B-Instruct")
         # model.initialize_model()
@@ -36,7 +34,7 @@ async def uploadPaper():
                     continue
 
                 elif chunk["type"] == "text":
-                    print("\nnew chunk pushing to input queue")
+                    # print("\nnew chunk pushing to input queue")
                     text = chunk["content"]
                     await input_q.put({"type": "text", "content": text})
                 # elif chunk["type"] == "image":
@@ -61,71 +59,78 @@ import json
 
 @router.post("/generateDataset")
 async def generateData(file: UploadFile = File(...)):
-    file_bytes = await file.read()
-    docs = fitz.open(stream=file_bytes, filetype="pdf")
+    try:
+        file_bytes = await file.read()
+        docs = fitz.open(stream=file_bytes, filetype="pdf")
 
-    model = Model("meta-llama/Meta-Llama-3-8B-Instruct")
+        model = Model("meta-llama/Meta-Llama-3-8B-Instruct")
 
-    dataset = [] 
+        dataset = [] 
 
-    for page in docs:
-        blocks = page.get_text("dict")["blocks"]
+        for page in docs:
+            blocks = page.get_text("dict")["blocks"]
 
-        for block in blocks:
-            if block["type"] == 0:
-                text = " ".join(
-                    " ".join(span["text"] for span in line["spans"])
-                    for line in block["lines"]
-                ).strip()
+            for block in blocks:
+                if block["type"] == 0:
+                    text = " ".join(
+                        " ".join(span["text"] for span in line["spans"])
+                        for line in block["lines"]
+                    ).strip()
 
-                if not text:
-                    continue
+                    if not text:
+                        continue
 
-                # Call model
-                response = await model.model_generate({"type": "text", "content": text})
+                    # Call model
+                    print(text)
+                    response = await model.model_generate(text)
+                    print(response)
+                    if response is None:
+                        continue
+                    # Extract actual text from response
+                    # try:
+                    #     output_text = response.choices[0].message.content
+                    # except Exception:
+                    #     output_text = str(response)
+                    output_text = response
 
-                # Extract actual text from response
-                try:
-                    output_text = response.choices[0].message.content
-                except Exception:
-                    output_text = str(response)
+                    # Build dataset entry
+                    data = {
+                        "messages": [
+                            {
+                                "role": "system",
+                                "content": (
+                                    "You are an expert at simplifying complex research content for beginners. "
+                                    "Your goal is to make the explanation easy to understand for a normal user "
+                                    "with no technical background.\n\n"
+                                    "Follow this structure strictly:\n\n"
+                                    "1. Simplified Explanation:\n"
+                                    "- Explain the idea in very simple language.\n"
+                                    "- Use analogies or real-life examples when possible.\n"
+                                    "- Avoid jargon. If needed, explain it in simple words.\n\n"
+                                    "2. Key Points:\n"
+                                    "- Provide 3–6 bullet points.\n"
+                                    "- Keep them short and clear.\n\n"
+                                    "3. Why It Matters:\n"
+                                    "- Briefly explain why this concept is useful or important in real life.\n\n"
+                                    "Rules:\n"
+                                    "- Do NOT copy sentences from the input.\n"
+                                    "- Do NOT use complex words unnecessarily.\n"
+                                    "- Keep it concise but clear.\n"
+                                    "- If the input is already simple, still format it in this structure."
+                                ),
+                            },
+                            {"role": "user", "content": text},
+                            {"role": "assistant", "content": output_text},
+                        ]
+                    }
 
-                # Build dataset entry
-                data = {
-                    "messages": [
-                        {
-                            "role": "system",
-                            "content": (
-                                "You are an expert at simplifying complex research content for beginners. "
-                                "Your goal is to make the explanation easy to understand for a normal user "
-                                "with no technical background.\n\n"
-                                "Follow this structure strictly:\n\n"
-                                "1. Simplified Explanation:\n"
-                                "- Explain the idea in very simple language.\n"
-                                "- Use analogies or real-life examples when possible.\n"
-                                "- Avoid jargon. If needed, explain it in simple words.\n\n"
-                                "2. Key Points:\n"
-                                "- Provide 3–6 bullet points.\n"
-                                "- Keep them short and clear.\n\n"
-                                "3. Why It Matters:\n"
-                                "- Briefly explain why this concept is useful or important in real life.\n\n"
-                                "Rules:\n"
-                                "- Do NOT copy sentences from the input.\n"
-                                "- Do NOT use complex words unnecessarily.\n"
-                                "- Keep it concise but clear.\n"
-                                "- If the input is already simple, still format it in this structure."
-                            ),
-                        },
-                        {"role": "user", "content": text},
-                        {"role": "assistant", "content": output_text},
-                    ]
-                }
+                    dataset.append(data)
 
-                dataset.append(data)
+        # Save as JSONL (best for training)
+        with open("dataset.jsonl", "w", encoding="utf-8") as f:
+            for item in dataset:
+                f.write(json.dumps(item, ensure_ascii=False) + "\n")
 
-    # Save as JSONL (best for training)
-    with open("dataset.jsonl", "w", encoding="utf-8") as f:
-        for item in dataset:
-            f.write(json.dumps(item, ensure_ascii=False) + "\n")
-
-    return {"status": "success", "samples_generated": len(dataset)}
+        return {"status": "success", "samples_generated": len(dataset)}
+    except Exception as e:
+       print(e)
