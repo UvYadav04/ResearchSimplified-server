@@ -1,6 +1,7 @@
 import fitz
-from noise import is_noise
+from .noise import is_noise
 
+import asyncio
 class PDFParser:
     def __init__(self, file_stream):
         self.doc = fitz.open(stream=file_stream.read(), filetype="pdf")
@@ -14,9 +15,12 @@ class PDFParser:
             blocks = page.get_text("dict")["blocks"]
 
             for block in blocks:
-                yield self.process_block(block)
+                result = self.process_block(block)
 
-        yield self.flush()
+                if result: 
+                    yield result
+
+        yield {"type": "end"}  # simpler
 
     def process_block(self, block):
         if block["type"] == 0:
@@ -26,16 +30,15 @@ class PDFParser:
             ).strip()
 
             if is_noise(text):
-                return None
+                return {"type": "noise", "content": None}
 
             if text:
                 return {"type": "text", "content": text}
 
-        elif block["type"] == 1:
-            xref = block["image"]
-            base = self.doc.extract_image(xref)
-
-            return {"type": "image", "ext": base["ext"], "size": len(base["image"])}
+        if block["type"] == 1:
+            data = block["image"]
+            return {"type": "image", "data":data, "size": len(data)}
+        return None
 
     def flush(self):
         return {"type": "end"}

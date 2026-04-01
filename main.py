@@ -41,7 +41,6 @@ app.add_middleware(
 @app.middleware("http")
 async def authenticate(request: Request, call_next):
     try:
-        print("cookies : ", request.cookies)
         auth_token = request.cookies.get("zensky-jwt-token")
         session_id = request.cookies.get("session_id")
         session = app.state.sessions.get(session_id)
@@ -105,7 +104,6 @@ async def authenticate(request: Request, call_next):
 @app.get("/debug")
 async def debug(request: Request):
     return request.cookies
-
 
 app.include_router(document_router)
 

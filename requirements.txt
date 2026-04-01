@@ -4,3 +4,7 @@ python-multipart
 fastapi
 uvicorn
 pyjWT
+accelerate
+transformers
+torch
+bitsandbytes
