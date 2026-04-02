@@ -5,7 +5,8 @@ from workers.modelWorker import model_worker
 from workers.streamer import stream_output
 from fastapi.responses import StreamingResponse
 import asyncio
-
+from PIL import Image
+import io
 
 router = APIRouter()
 
@@ -37,10 +38,13 @@ async def uploadPaper(file: UploadFile = File(...)):
                     # print("\nnew chunk pushing to input queue")
                     text = chunk["content"]
                     await input_q.put({"type": "text", "content": text})
-                # elif chunk["type"] == "image":
-                #     data = chunk["data"]
-                #     await input_q.put({"type": "image", "content": data})
-                # await asyncio.sleep(0)
+                    continue
+                elif chunk["type"] == "image":
+                    data = chunk["data"]
+                    image = Image.open(io.BytesIO(data))
+                    image.show()
+                    await input_q.put({"type": "image", "content": data})
+                await asyncio.sleep(0)
             await input_q.put({"type": "end"})
 
         asyncio.create_task(handle_stream())

@@ -10,7 +10,9 @@ import torch
 import threading
 from openai import OpenAI
 import os
-
+import google.generativeai as genai
+from PIL import Image
+import io
 
 class Model:
     def __init__(self, model_name: str, device: str = "cpu"):
@@ -19,6 +21,7 @@ class Model:
 
         self.model = None
         self.tokenizer = None
+        self.gemini = None
         self.client = InferenceClient(
             model=model_name, token=os.environ.get("HF_TOKEN")
         )
@@ -26,6 +29,11 @@ class Model:
         #     api_key=os.environ.get("GROQ_API_KEY"),
         #     base_url="https://api.groq.com/openai/v1",
         # )
+
+
+    def initialize_gemini(self):
+        genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
+        return genai.GenerativeModel("gemini-2.5-flash")
 
     def initialize_model(self):
         # MODEL_PATH = f"Server/Model/local"
@@ -46,6 +54,11 @@ class Model:
         # self.model.eval()
         return self.model
 
+    def get_gemini(self):
+        if self.gemini is None:
+            self.gemini = self.initialize_gemini()
+        return self.gemini
+    
     def get_model(self):
         if self.model is None:
             self.model = self.initialize_model()
@@ -152,20 +165,40 @@ class Model:
 
         type = inputs["type"]
 
-        try:
-            if not "content" in inputs:
-                return None
-            content = inputs["content"]
-            stream = self.client.chat.completions.create(
-                messages=self.format_instruction(content, lastContent),
-                model="openai/gpt-oss-20b",
-                stream=True,
-                max_tokens=512,
-            )
-            return stream
+        if type == "text":
+            try:
+                if not "content" in inputs:
+                    return None
+                content = inputs["content"]
+                stream = self.client.chat.completions.create(
+                    messages=self.format_instruction(content, lastContent),
+                    model="openai/gpt-oss-20b",
+                    stream=True,
+                    max_tokens=512,
+                )
+                return stream
 
-        except Exception as e:
-            print("FULL ERROR:", repr(e))
-            return None
+            except Exception as e:
+                print("FULL ERROR:", repr(e))
+                return None
+        elif type=="image":
+            try:
+                if not "content" in inputs:
+                    return None
+                content = inputs["content"]
+                image = Image.open(io.BytesIO(content))
+                gemini = self.get_gemini()
+                # return None
+                stream = gemini.generate_content([
+                "Explain this image clearly, this is an image from a research paper so understand the image and explain as a research paper assistant.",
+                image
+                ],
+                stream=True)
+
+                return stream
+
+            except Exception as e:
+                print("FULL ERROR:", repr(e))
+                return None
 
     # elif type == "image":
