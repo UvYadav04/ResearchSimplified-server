@@ -16,6 +16,7 @@ BATCH_TOKEN_LIMIT = 3000
 @router.post("/documents/upload-paper")
 async def uploadPaper(file: UploadFile = File(...)):
     try:
+        print("in model call here")
         file_bytes = await file.read()
         input_q = asyncio.Queue()
         output_q = asyncio.Queue()
@@ -36,14 +37,14 @@ async def uploadPaper(file: UploadFile = File(...)):
 
                 elif chunk["type"] == "text":
                     # print("\nnew chunk pushing to input queue")
+                    print(f"document : page:{chunk["page"]} block:{chunk["block_idx"]}")
                     text = chunk["content"]
-                    await input_q.put({"type": "text", "content": text})
-                    continue
-                elif chunk["type"] == "image":
-                    data = chunk["data"]
-                    image = Image.open(io.BytesIO(data))
-                    image.show()
-                    await input_q.put({"type": "image", "content": data})
+                    await input_q.put({"type": "text", "content": text,"page":chunk["page"],"block_idx":chunk["block_idx"]})
+                # elif chunk["type"] == "image":
+                #     data = chunk["data"]
+                #     image = Image.open(io.BytesIO(data))
+                #     image.show()
+                #     await input_q.put({"type": "image", "content": data})
                 await asyncio.sleep(0)
             await input_q.put({"type": "end"})
 

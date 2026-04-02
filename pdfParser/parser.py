@@ -11,21 +11,18 @@ class PDFParser:
         self.token_count = 0
 
     def stream(self):
-        i = 0
-        for page in self.doc:
-            if i>4:
-                break
+        for index, page in enumerate(self.doc):
             blocks = page.get_text("dict")["blocks"]
-
-            for block in blocks:
-                result = self.process_block(block)
+            for block_idx, block in enumerate(blocks):
+                print(f"parser : page : {index} block: {block_idx}")
+                result = self.process_block(block,index,block_idx)
 
                 if result: 
                     yield result
 
         yield {"type": "end"}  # simpler
 
-    def process_block(self, block):
+    def process_block(self, block,index,block_idx):
         if block["type"] == 0:
             text = " ".join(
                 " ".join(span["text"] for span in line["spans"])
@@ -36,11 +33,11 @@ class PDFParser:
                 return {"type": "noise", "content": None}
 
             if text:
-                return {"type": "text", "content": text}
+                return {"type": "text", "content": text,"page":index,"block_idx":block_idx}
 
         if block["type"] == 1:
             data = block["image"]
-            return {"type": "image", "data":data, "size": len(data)}
+            return {"type": "image", "data":data, "size": len(data),"page":index,"block_idx":block_idx}
         return None
 
     def flush(self):

@@ -6,22 +6,25 @@ async def model_worker(input_q: asyncio.Queue, output_q: asyncio.Queue, model: M
     lastChunk = None
     while True:
         top = await input_q.get()
-        print(top["type"])
+        # print(top["type"])
 
         if top["type"] != "end":
-            await output_q.put({"type": "originalContent", "content": top["type"]})
+            await output_q.put(
+                {"type": "originalContent", "content": top["content"], "page": top["page"],"content-type":top["type"],"block_idx":top["block_idx"]}
+            )
+            print(f"modelworker : page:{top["page"]} block:{top["block_idx"]}")
             await asyncio.sleep(0)
 
-        generator = model.stream_generate(top, lastChunk)
         if "content" in top:
             lastChunk = top["content"]
+        generator = model.stream_generate(top, lastChunk)
         if generator is None:
             continue
         try:
             for chunk in generator:
                 token = extract_token(chunk)
                 if token:
-                    await output_q.put({"type": top["type"], "content": token})
+                    await output_q.put({"type": "text", "content": token})
                     await asyncio.sleep(0)
             await output_q.put({"type": "end"})
             await asyncio.sleep(0)
