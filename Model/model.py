@@ -14,63 +14,18 @@ import google.generativeai as genai
 from PIL import Image
 import io
 
+
 class Model:
-    def __init__(self, model_name: str, device: str = "cpu"):
-        self.model_name = model_name
+    def __init__(self, model, client, device: str = "cpu"):
+        self.model = model
         self.device = device
-
-        self.model = None
         self.tokenizer = None
-        self.gemini = None
-        self.client = InferenceClient(
-            model=model_name, token=os.environ.get("HF_TOKEN")
-        )
-        # self.client = OpenAI(
-        #     api_key=os.environ.get("GROQ_API_KEY"),
-        #     base_url="https://api.groq.com/openai/v1",
-        # )
-
-
-    def initialize_gemini(self):
-        genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
-        return genai.GenerativeModel("gemini-2.5-flash")
-
-    def initialize_model(self):
-        # MODEL_PATH = f"Server/Model/local"
-        # if os.path.exists(MODEL_PATH):
-        #     model_path = MODEL_PATH
-        # else:
-        #     model_path = self.model_name
-        # bnb_config = BitsAndBytesConfig(
-        #     load_in_4bit=True, bnb_4bit_compute_dtype=torch.float16
-        # )
-        # self.model = AutoModelForCausalLM.from_pretrained(
-        #     model_path,
-        #     quantization_config=bnb_config,  # ✅ correct way
-        #     dtype=torch.float16,
-        # )
-        # if not os.path.exists(MODEL_PATH):
-        #     self.model.save_pretrained(MODEL_PATH)
-        # self.model.eval()
-        return self.model
-
-    def get_gemini(self):
-        if self.gemini is None:
-            self.gemini = self.initialize_gemini()
-        return self.gemini
-    
-    def get_model(self):
-        if self.model is None:
-            self.model = self.initialize_model()
-
-        return self.model
 
     def get_tokenizer(self):
         if self.tokenizer is None:
             self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
             self.tokenizer.pad_token = self.tokenizer.eos_token
         return self.tokenizer
-
 
     def format_instruction(self, message: str, lastContent: str = ""):
         user_content = message
@@ -117,7 +72,6 @@ class Model:
         ]
 
     def apply_template(self, message: str):
-        # print("message : ", message)
         tokenizer = self.get_tokenizer()
         formatted = self.format_instruction(message)
 
@@ -128,77 +82,26 @@ class Model:
             add_generation_prompt=True,
         ).to(self.device)
 
-    async def model_generate(self, message):
+    def stream_generate(self, inputs, lastContent):
+        # this generation method is for hf inference providers
         try:
-            response = self.client.chat.completions.create(
-                messages=self.format_instruction(message),
-                stream=False,
+            if not "content" in inputs:
+                return None
+            content = inputs["content"]
+            stream = self.model.chat.completions.create(
+                messages=self.format_instruction(content, lastContent),
+                model="openai/gpt-oss-20b",
+                stream=True,
                 max_tokens=512,
             )
-
-            result = response.choices[0].message.content
-
-            return result
+            return stream
 
         except Exception as e:
             print("FULL ERROR:", repr(e))
-            return None  # ✅ consistent
+            return None
 
-    def stream_generate(self, inputs, lastContent):
-        # model = self.get_model()
-        # tokenizer = self.get_tokenizer()
+    def read_image(self, image, query):
+        return None
 
-        # streamer = TextIteratorStreamer(tokenizer, skip_special_tokens=True)
-        # print(inputs)
-        # # Run generation in background thread
-        # thread = threading.Thread(
-        #     target=model.generate,
-        #     kwargs={
-        #         **inputs,
-        #         "streamer": streamer,
-        #         "max_new_tokens": 200,
-        #         "do_sample": True,
-        #         "temperature": 0.7,
-        #     },
-        # )
-        # thread.start()
-
-        type = inputs["type"]
-
-        if type == "text":
-            try:
-                if not "content" in inputs:
-                    return None
-                content = inputs["content"]
-                stream = self.client.chat.completions.create(
-                    messages=self.format_instruction(content, lastContent),
-                    model="openai/gpt-oss-20b",
-                    stream=True,
-                    max_tokens=512,
-                )
-                return stream
-
-            except Exception as e:
-                print("FULL ERROR:", repr(e))
-                return None
-        elif type=="image":
-            try:
-                if not "content" in inputs:
-                    return None
-                content = inputs["content"]
-                image = Image.open(io.BytesIO(content))
-                gemini = self.get_gemini()
-                # return None
-                stream = gemini.generate_content([
-                "Explain this image clearly, this is an image from a research paper so understand the image and explain as a research paper assistant.",
-                image
-                ],
-                stream=True)
-
-                return stream
-
-            except Exception as e:
-                print("FULL ERROR:", repr(e))
-                return None
-
-    # elif type == "image":
+    def generate_image(self, query):
+        return None

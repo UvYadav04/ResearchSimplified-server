@@ -4,6 +4,7 @@ import uuid
 from contextlib import asynccontextmanager
 from routes.document import router as document_router
 from routes.user import router as user_router
+from routes.chat import router as chat_router
 import uuid
 from fastapi import Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -106,6 +107,7 @@ async def authenticate(request: Request, call_next):
 
 app.include_router(document_router)
 app.include_router(user_router)
+app.include_router(chat_router)
 
 
 @app.get("/{full_path:path}")
