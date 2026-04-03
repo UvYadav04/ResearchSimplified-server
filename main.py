@@ -3,6 +3,7 @@ from fastapi.responses import JSONResponse
 import uuid
 from contextlib import asynccontextmanager
 from routes.document import router as document_router
+from routes.user import router as user_router
 import uuid
 from fastapi import Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -41,15 +42,17 @@ app.add_middleware(
 @app.middleware("http")
 async def authenticate(request: Request, call_next):
     try:
-        auth_token = request.cookies.get("zensky-jwt-token")
+        auth_token = request.cookies.get("research_simplified")
         session_id = request.cookies.get("session_id")
         session = app.state.sessions.get(session_id)
         user_id = None
         if auth_token:
             try:
+                print("auth Tokens",auth_token)
                 payload = jwt.decode(
                     auth_token, os.environ["JWT_SECRET"], algorithms=["HS256"]
                 )
+                print("payload : ",payload)
                 user_id = payload.get("user_id")
             except jwt.InvalidTokenError as e:
                 print(e)
@@ -101,11 +104,8 @@ async def authenticate(request: Request, call_next):
         )
 
 
-@app.get("/debug")
-async def debug(request: Request):
-    return request.cookies
-
 app.include_router(document_router)
+app.include_router(user_router)
 
 
 @app.get("/{full_path:path}")
