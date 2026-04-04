@@ -16,7 +16,7 @@ import io
 
 
 class Model:
-    def __init__(self, model, client, device: str = "cpu"):
+    def __init__(self, model, device: str = "cpu"):
         self.model = model
         self.device = device
         self.tokenizer = None
@@ -51,25 +51,47 @@ class Model:
                     "Your goal is to make the explanation easy to understand for a normal user "
                     "with no technical background.\n\n"
                     "Follow this structure strictly:\n\n"
-                    "1. Simplified Explanation:\n"
+                    "1. Simplified Explanation (as Heading):\n"
                     "- Explain the idea in very simple language.\n"
                     "- Use analogies or real-life examples when possible.\n"
                     "- Avoid jargon. If needed, explain it in simple words.\n\n"
-                    "2. Key Points:\n"
+                    "2. Key Points (as bold heading):\n"
                     "- Provide 3–6 bullet points.\n"
                     "- Keep them short and clear.\n\n"
-                    "3. Why It Matters:\n"
+                    "3. Why It Matters (optional):\n"
                     "- Briefly explain why this concept is useful or important in real life.\n\n"
                     "Rules:\n"
-                    "- Do NOT copy sentences from the input.\n"
-                    "- Do NOT use complex words unnecessarily.\n"
-                    "- Keep it concise but clear.\n"
-                    "- If the input is already simple or irrelevant, return the same input.\n"
                     "- Always format output in clean Markdown.\n"
+                    "- You can decide to skip or add sections.\n"
+                    "- If the input is already simple, general information, very short, not connected to previous content, and you think it does not need to be explained, start with same.\n"
+                    "- Do NOT copy sentences from the input.\n"
                 ),
             },
             {"role": "user", "content": user_content},
         ]
+
+    def format_chunk_query(self, message: str, relatedContent: str):
+
+        if relatedContent:
+            user_content = f"""
+                        Context:
+                        {relatedContent}
+
+                        Explain this in simple terms:
+                        {message}
+
+                        If the context is relevant, use it. Otherwise, just explain normally.
+                        """
+        else:
+            user_content = f"Explain this in simple terms:\n{message}"
+
+        system_prompt = (
+            "You explain things in a very simple and easy-to-understand way. "
+            "Use plain language, short sentences, and examples when helpful. "
+            "Avoid jargon. Keep it clear and natural."
+        )
+
+        return system_prompt, [{"role": "user", "parts": [{"text": user_content}]}]
 
     def apply_template(self, message: str):
         tokenizer = self.get_tokenizer()
@@ -82,7 +104,7 @@ class Model:
             add_generation_prompt=True,
         ).to(self.device)
 
-    def stream_generate(self, inputs, lastContent):
+    def stream_document(self, inputs, lastContent):
         # this generation method is for hf inference providers
         try:
             if not "content" in inputs:
@@ -90,7 +112,7 @@ class Model:
             content = inputs["content"]
             stream = self.model.chat.completions.create(
                 messages=self.format_instruction(content, lastContent),
-                model="openai/gpt-oss-20b",
+                model="meta-llama/Meta-Llama-3-8B-Instruct",
                 stream=True,
                 max_tokens=512,
             )
@@ -98,7 +120,16 @@ class Model:
 
         except Exception as e:
             print("FULL ERROR:", repr(e))
-            return None
+            return {"error":str(e)}
+
+    def stream_query(self, input, relatedContent):
+
+        system_prompt, contents = self.format_chunk_query(input, relatedContent)
+
+        response = self.model.generate_content(
+            contents, stream=True, system_instruction=system_prompt
+        )
+        return response
 
     def read_image(self, image, query):
         return None

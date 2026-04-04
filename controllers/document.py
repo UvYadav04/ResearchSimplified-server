@@ -2,7 +2,7 @@ from fastapi import UploadFile, File, Request, HTTPException, status
 import asyncio
 from workers.modelWorker import model_worker
 from workers.streamer import stream_output
-from startupFunctions import get_mongo
+from startupFunctions import get_mongo, get_client
 from fastapi.responses import StreamingResponse
 import asyncio
 from PIL import Image
@@ -14,12 +14,8 @@ from Model.model import Model
 async def uploadPaper(request: Request, file):
     try:
         user_id = getattr(request.state, "user_id", None)
-        # if user_id is None:
-        #     raise HTTPException(
-        #         status_code=status.HTTP_401_UNAUTHORIZED,
-        #         detail="Please login to upload a paper",
-        #     )
         mongo = get_mongo(request.app)
+
         if mongo is None:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -27,21 +23,27 @@ async def uploadPaper(request: Request, file):
             )
 
         user_db = mongo.get_collection("users")
+
         userInfo = None
         if user_id:
-            userInfo = user_db.find_one({"_id": user_id})
+            userInfo = user_db.find_one({"_id": user_id})   # ✅ FIX
 
-        if userInfo and userInfo["documentUploads"] >= os.environ["USER_DOCS_ALLOWED"]:
+        if userInfo and userInfo.get("documentUploads", 0) >= int(os.environ["USER_DOCS_ALLOWED"]): 
             raise HTTPException(
                 status_code=status.HTTP_405_METHOD_NOT_ALLOWED,
                 detail="You can upload only 5 paper in free tier.",
             )
 
         file_bytes = await file.read()
+
         input_q = asyncio.Queue()
         output_q = asyncio.Queue()
+
         parser = PDFParser(file_bytes)
-        model = Model("meta-llama/Meta-Llama-3-8B-Instruct")
+
+        hf_inference = await get_client(request.app)
+
+        model = Model(hf_inference)
 
         asyncio.create_task(model_worker(input_q, output_q, model))
 
@@ -55,9 +57,7 @@ async def uploadPaper(request: Request, file):
 
                 elif chunk["type"] == "text":
                     page = chunk["page"]
-                    print("page : ", page)
                     if user_id is None and page >= 1:
-                        await input_q.put({"type": "end"})
                         break
                     text = chunk["content"]
                     await input_q.put(
@@ -79,9 +79,10 @@ async def uploadPaper(request: Request, file):
 
         asyncio.create_task(handle_stream())
 
-        if user_db and userInfo:
-            user_db.find_one_and_update({"_id": id}, {"$inc": {"documentUploads": 1}})
+        # if user_db and userInfo:
+        #     user_db.find_one_and_update({"_id": id}, {"$inc": {"documentUploads": 1}})
         return StreamingResponse(stream_output(output_q), media_type="text/plain")
     except Exception as e:
-        print(e)
+        print("I am error : ",e)
+        await input_q.put({"type": "error","message": str(e)})
         return {"success": False}

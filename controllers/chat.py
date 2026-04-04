@@ -1,6 +1,9 @@
 import os
 import requests
-
+from startupFunctions import get_gemini
+from fastapi import Request
+from Model.model import Model
+from fastapi.responses import StreamingResponse
 
 async def classifyQuery(query: str):
     headers = {
@@ -22,3 +25,16 @@ async def classifyQuery(query: str):
     )
     return response.json()
 
+
+
+async def handleQuery(query:str,relatedContext:str,request:Request):
+    gemini = await get_gemini(request.app)
+    modelManager = Model(gemini)
+    streamer = modelManager.stream_query(query,relatedContext)
+
+    def streamer_generator():
+        for token in streamer:
+            if token:
+                yield token
+
+    return StreamingResponse(streamer_generator(),media_type='text/plain')

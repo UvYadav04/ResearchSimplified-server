@@ -15,5 +15,5 @@ async def awake_groq():
 
 async def awake_client():
     return InferenceClient(
-        oken=os.environ.get("HF_TOKEN")
+        token=os.environ.get("HF_TOKEN")
     )
