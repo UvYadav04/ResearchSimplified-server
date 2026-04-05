@@ -31,7 +31,7 @@ class Redis:
             pipe.json().set(key, "$", doc)
 
         pipe.execute()
-
+        print("chats pushed successfully")
         return key
 
     def delete_session_chunks(self):
@@ -47,9 +47,12 @@ class Redis:
             if cursor == 0:
                 break
         print("Old session chunks deleted")
+
+
     @safeExecution
     def _chunk_key(self,session_id:str, chunk_id):
         return f"jdoc:chunk:{session_id}:{chunk_id}"
+    
     @safeExecution
     def add_chunks_batch(self, chunks: list, embeddings: list):
         print("session Id",self.session)
@@ -89,13 +92,10 @@ class Redis:
         if doc.get("session_id") != self.session:
             return None
 
-        return {"chunk_id": doc.get("chunk_id"), "content": doc.get("content")}
+        return doc.get("content")
 
     @safeExecution
     def search(self, query_embedding, top_k=5, doc_type=None):
-
-
-
         base_filter = f"@session_id:{{{self.session}}}"
 
         if doc_type:
