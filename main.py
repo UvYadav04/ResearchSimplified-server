@@ -1,17 +1,16 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
-import uuid
 from contextlib import asynccontextmanager
 from routes.document import router as document_router
 from routes.user import router as user_router
 from routes.chat import router as chat_router
-import uuid
 from fastapi import Request
 from fastapi.middleware.cors import CORSMiddleware
 import os
 from starlette.middleware.sessions import SessionMiddleware
 from dotenv import load_dotenv
 import jwt
+from utils.idGenerator import generateId
 
 load_dotenv()
 
@@ -46,6 +45,7 @@ async def authenticate(request: Request, call_next):
         auth_token = request.cookies.get("research_simplified")
         session_id = request.cookies.get("session_id")
         session = app.state.sessions.get(session_id)
+        print("session Id at main : ",session_id)
         user_id = None
         if auth_token:
             try:
@@ -60,8 +60,8 @@ async def authenticate(request: Request, call_next):
                 pass
 
         if not session:
-            session_id = str(uuid.uuid4())
-            new_chat_id = str(uuid.uuid4())
+            session_id = generateId()
+            new_chat_id = generateId()
             session = {
                 "session_id": session_id,
                 "messages": [],
@@ -88,7 +88,7 @@ async def authenticate(request: Request, call_next):
             if "user_id" not in session and user_id is not None:
                 session["user_id"] = user_id
             if "current_chat_id" not in session:
-                session["current_chat_id"] = str(uuid.uuid4())
+                session["current_chat_id"] = generateId()   
             request.state.session_id = session_id
             request.state.user_id = user_id
             request.state.session = session

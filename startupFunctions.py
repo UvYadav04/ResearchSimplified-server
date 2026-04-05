@@ -1,5 +1,5 @@
 from db.mongo import connect_db
-from Models.model import awake_gemini, awake_client, awake_groq
+from Models.model import awake_gemini, awake_client, awake_groq, awake_redis,awake_fastembed
 
 
 def get_mongo(app):
@@ -28,3 +28,16 @@ async def get_client(app):
         hf_client = await awake_client()
         app.state.hf_client = hf_client
     return app.state.hf_client
+
+def get_redis(app):
+    if not hasattr(app.state, "redis"):
+        redis = awake_redis()
+        print(redis)
+        app.state.redis = redis
+    return app.state.redis
+
+def get_fastembed(app):
+    if not hasattr(app.state, "fastembed"):
+        fastembed = awake_fastembed()
+        app.state.fastembed = fastembed
+    return app.state.fastembed

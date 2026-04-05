@@ -1,7 +1,10 @@
 from google import genai
 import os
 from huggingface_hub import InferenceClient
+import redis
 from openai import OpenAI
+from Redis.schema import create_index
+from fastembed import TextEmbedding
 
 
 def awake_gemini():
@@ -19,3 +22,11 @@ async def awake_client():
     return InferenceClient(
         token=os.environ.get("HF_TOKEN")
     )
+
+def awake_redis():
+    redis_client =  redis.Redis(host="localhost", port=6379, decode_responses=False)
+    create_index(redis_client=redis_client)
+    return redis_client
+
+def awake_fastembed():
+     return TextEmbedding(model_name="BAAI/bge-small-en-v1.5")

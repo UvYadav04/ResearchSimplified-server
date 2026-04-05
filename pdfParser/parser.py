@@ -1,27 +1,44 @@
 import fitz
 from .noise import is_noise
 import asyncio
-from uuid import uuid1 as uuid
+from utils.idGenerator import generateId
 
 
 class PDFParser:
-    def __init__(self, file_stream):
+    def __init__(
+        self,
+        file_stream,
+        redis,
+        embedder=None,
+    ):
         self.doc = fitz.open(stream=file_stream, filetype="pdf")
-
         self.buffer = None
         self.batch = []
         self.token_count = 0
+        self.embedder = embedder
+        self.redis = redis
+
+    def get_embeddings(self, chunks):
+        embeddings = list(self.embedder.embed(chunks))
+        return embeddings
 
     def stream(self):
+        chunks = []
         for index, page in enumerate(self.doc):
             blocks = page.get_text("dict")["blocks"]
             for block_idx, block in enumerate(blocks):
-                print(f"parser : page : {index} block: {block_idx}")
+                # print(f"parser : page : {index} block: {block_idx}")
                 result = self.process_block(block, index, block_idx)
-
+                if result["type"] == "text":
+                    chunks.append(
+                        {"text": result["content"], "chunk_id": str(result["id"])}
+                    )
                 if result:
                     yield result
 
+        embeddings = self.get_embeddings([chunk["chunk_id"] for chunk in chunks])
+        # print("created embeddings")
+        self.redis.add_chunks_batch(chunks,embeddings)
         yield {"type": "end"}  # simpler
 
     def process_block(self, block, index, block_idx):
@@ -40,7 +57,7 @@ class PDFParser:
                     "content": text,
                     "page": index,
                     "block_idx": block_idx,
-                    "id":uuid()
+                    "id": generateId(),
                 }
 
         if block["type"] == 1:
@@ -51,7 +68,7 @@ class PDFParser:
                 "size": len(data),
                 "page": index,
                 "block_idx": block_idx,
-                "id":uuid()
+                "id": generateId(),
             }
         return None
 

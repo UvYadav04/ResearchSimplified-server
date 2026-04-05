@@ -10,3 +10,6 @@ torch
 bitsandbytes
 openai
 pillow
+numpy
+redis
+fastembed

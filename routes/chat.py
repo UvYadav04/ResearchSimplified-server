@@ -25,7 +25,7 @@ async def handleChat(request: Request, response: Response):
 
         # match query_type:
         #     case "A standalone general query":
-        streamer = await handleQuery(query,"",request)
+        streamer = await handleQuery(query,request)
         return StreamingResponse(streamer(), media_type="text/plain")
 
         # case "A request to summarize content":

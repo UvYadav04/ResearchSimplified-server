@@ -16,16 +16,10 @@ import io
 
 
 class Model:
-    def __init__(self, model, device: str = "cpu"):
+    def __init__(self, model,device: str = "cpu"):
         self.model = model
         self.device = device
-        self.tokenizer = None
 
-    def get_tokenizer(self):
-        if self.tokenizer is None:
-            self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
-            self.tokenizer.pad_token = self.tokenizer.eos_token
-        return self.tokenizer
 
     def format_instruction(self, message: str, lastContent: str = ""):
         user_content = message
