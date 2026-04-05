@@ -10,9 +10,9 @@ def get_mongo(app):
     return app.state.research_db
 
 
-async def get_gemini(app):
+def get_gemini(app):
     if not hasattr(app.state, "gemini"):
-        gemini = await awake_gemini()
+        gemini = awake_gemini()
         app.state.gemini = gemini
     return app.state.gemini
 

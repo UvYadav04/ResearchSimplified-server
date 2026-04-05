@@ -1,10 +1,15 @@
 import os
 import requests
-from startupFunctions import get_gemini
+from startupFunctions import get_gemini, get_client
 from fastapi import Request
 from Model.model import Model
 from fastapi.responses import StreamingResponse
+from SafeExecution.safeExecution import safeExecution
+import asyncio
+import json
 
+
+@safeExecution
 async def classifyQuery(query: str):
     headers = {
         "Authorization": f"Bearer {os.environ['HF_TOKEN']}",
@@ -25,16 +30,23 @@ async def classifyQuery(query: str):
     )
     return response.json()
 
+@safeExecution
+async def handleQuery(query: str, relatedContext: str, request: Request):
+    # gemini = get_gemini(request.app)
+    print("in conroller")
+    client = await get_client(request.app)
+    modelManager = Model(client)
 
+    streamer = modelManager.stream_query(query, relatedContext)
 
-async def handleQuery(query:str,relatedContext:str,request:Request):
-    gemini = await get_gemini(request.app)
-    modelManager = Model(gemini)
-    streamer = modelManager.stream_query(query,relatedContext)
+    async def streamer_generator():
+        for chunk in streamer:
+            choices = chunk.choices
+            if choices is None or len(choices)==0:
+                continue
+            text =  choices[0].delta.content
+            if text:
+                yield json.dumps({"type": "text", "content": text}) + "<END>"
+                await asyncio.sleep(0)
 
-    def streamer_generator():
-        for token in streamer:
-            if token:
-                yield token
-
-    return StreamingResponse(streamer_generator(),media_type='text/plain')
+    return streamer_generator

@@ -2,7 +2,6 @@ import asyncio
 from Model.model import Model
 from SafeExecution.safeExecution import safeExecution
 
-
 @safeExecution
 async def model_worker(input_q: asyncio.Queue, output_q: asyncio.Queue, model: Model):
     lastChunk = None
@@ -10,7 +9,7 @@ async def model_worker(input_q: asyncio.Queue, output_q: asyncio.Queue, model: M
         top = await input_q.get()
 
         if top["type"] == "error":
-            await output_q.put({"type": "end", "message": top["message"]})
+            await output_q.put({"type": "end","message":top["message"]})
             input_q.task_done()
             break
         elif top["type"] == "end":
@@ -33,13 +32,12 @@ async def model_worker(input_q: asyncio.Queue, output_q: asyncio.Queue, model: M
             await asyncio.sleep(0)
 
         generator = model.stream_document(top, lastChunk)
-        await output_q.put({"type": "error", "message": "Generator is not working today"})
-        await asyncio.sleep(0)
-        generator.close()
 
         if generator is None:
             continue
-        # elif type(generator) == dict and "error" in generator:
+        elif type(generator) == dict and "error" in generator:
+            await output_q.put({"type": "error", "content": None})
+            await asyncio.sleep(0)
         else:
             try:
                 for chunk in generator:

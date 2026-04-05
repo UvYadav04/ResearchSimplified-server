@@ -1,11 +1,13 @@
-import google.generativeai as genai
+from google import genai
 import os
 from huggingface_hub import InferenceClient
 from openai import OpenAI
 
-async def awake_gemini():
-    genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
-    return genai.GenerativeModel("gemini-2.5-flash")
+
+def awake_gemini():
+    client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
+    return client
+
 
 async def awake_groq():
     return  OpenAI(
