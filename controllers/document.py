@@ -20,7 +20,6 @@ async def uploadPaper(request: Request, file):
         mongo = get_mongo(request.app)
         embedder = get_fastembed(request.app)
         redis_client =get_redis(request.app)
-        print(redis_client)
         redis = Redis(redis=redis_client,session_id=session_id)
 
         if mongo is None or embedder is None:
@@ -30,6 +29,7 @@ async def uploadPaper(request: Request, file):
             )
 
         user_db = mongo.get_collection("users")
+        obectified_id = None
         if user_id:
             obectified_id = ObjectId(user_id)
         userInfo = None
