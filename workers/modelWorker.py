@@ -1,7 +1,7 @@
 import asyncio
 from Model.model import Model
 from SafeExecution.safeExecution import safeExecution
-from ..Model.llm import LLM
+from Model.llm import LLM
 
 
 @safeExecution

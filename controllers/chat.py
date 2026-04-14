@@ -20,7 +20,7 @@ import json
 from Redis.redis import Redis
 from utils.idGenerator import generateId
 from PIL import Image
-from ..Model.llm import LLM
+from Model.llm import LLM
 
 
 @safeExecution
