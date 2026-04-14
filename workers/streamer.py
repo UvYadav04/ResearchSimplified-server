@@ -1,6 +1,7 @@
 import json
 from SafeExecution.safeExecution import safeExecution
 
+
 @safeExecution
 async def stream_output(output_q):
     while True:
@@ -8,7 +9,6 @@ async def stream_output(output_q):
         if not result or result is None:
             continue
         if result["type"] == "end" or result["type"] == "error":
-            print(result)
             yield json.dumps(result)
             break
         yield json.dumps(result) + "<END>"

@@ -38,7 +38,7 @@ class PDFParser:
                     yield result
 
         embeddings = self.get_embeddings([chunk["text"] for chunk in chunks])
-        self.redis.add_chunks_batch(chunks,embeddings)
+        self.redis.add_chunks_batch(chunks, embeddings)
         yield {"type": "end"}  # simpler
 
     def process_block(self, block, index, block_idx):

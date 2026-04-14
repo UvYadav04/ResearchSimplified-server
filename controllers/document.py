@@ -10,7 +10,7 @@ from startupFunctions import (
     get_groq,
     get_coherent,
 )
-from fastapi.responses import StreamingResponse,JSONResponse
+from fastapi.responses import StreamingResponse, JSONResponse
 import asyncio
 from Redis.redis import Redis
 from controllers.chat import classifyQuery
@@ -20,6 +20,7 @@ from pdfParser.parser import PDFParser
 from Model.model import Model
 from bson import ObjectId
 from SafeExecution.safeExecution import safeExecution
+
 
 @safeExecution
 async def uploadPaper(request: Request, file):
@@ -77,13 +78,13 @@ async def uploadPaper(request: Request, file):
 
                 elif chunk["type"] == "text":
                     page = chunk["page"]
-                    if (obectified_id is None and page >= 1) or page>=3:
+                    if (obectified_id is None and page >= 1) or page >= 3:
                         break
                     text = chunk["content"]
 
-                    options=(
-                            "Core content (methods, results, explanation, concepts)",
-                            "Non-core content (authors, references, metadata, acknowledgments)",
+                    options = (
+                        "Core content (methods, results, explanation, concepts)",
+                        "Non-core content (authors, references, metadata, acknowledgments)",
                     )
                     response = await classifyQuery(
                         text,
@@ -95,7 +96,6 @@ async def uploadPaper(request: Request, file):
                     query_type = response[0]["label"]
                     if query_type == options[1]:
                         continue
-
                     chunks.append(
                         {"text": chunk["content"], "chunk_id": str(chunk["id"])}
                     )
@@ -108,27 +108,24 @@ async def uploadPaper(request: Request, file):
                             "id": chunk["id"],
                         }
                     )
+                    await asyncio.sleep(0)
                 # elif chunk["type"] == "image":
                 #     data = chunk["data"]
                 #     image = Image.open(io.BytesIO(data))
                 #     image.show()
                 #     await input_q.put({"type": "image", "content": data})
-                await asyncio.sleep(0)
             await input_q.put({"type": "end"})
 
         asyncio.create_task(handle_stream())
         if user_db is not None and userInfo:
             user_db.find_one_and_update(
-                {"_id": obectified_id}, {"$inc": {"documentUploads": 1},"$set":{"chatCounts": 0}}
+                {"_id": obectified_id},
+                {"$inc": {"documentUploads": 1}, "$set": {"chatCounts": 0}},
             )
         embeddings = parser.get_embeddings([chunk["text"] for chunk in chunks])
         redis.add_chunks_batch(chunks, embeddings)
         return StreamingResponse(stream_output(output_q), media_type="text/plain")
     except Exception as e:
         return JSONResponse(
-                status_code=500,
-                content={
-                    "success": False,
-                    "message": str(e)
-                }
-            )
+            status_code=500, content={"success": False, "message": str(e)}
+        )

@@ -10,6 +10,9 @@ async def model_worker(input_q: asyncio.Queue, output_q: asyncio.Queue, model: M
     llm = LLM()
     while True:
         top = await input_q.get()
+        # print(top)
+        if top is None:
+            continue
 
         if top["type"] == "error":
             await output_q.put({"type": "end", "message": top["message"]})
@@ -31,16 +34,20 @@ async def model_worker(input_q: asyncio.Queue, output_q: asyncio.Queue, model: M
                     "id": str(top["id"]),
                 }
             )
-            print(f"modelworker : page:{top["page"]} block:{top["block_idx"]}")
+            # print(f"modelworker : page:{top["page"]} block:{top["block_idx"]}")
             await asyncio.sleep(0)
             messages = llm.format_instruction(top["content"], lastChunk)
+            # print(messages)
+            if messages is None:
+                continue
 
             try:
                 async for chunk in llm.stream(messages):
-                    token = extract_token(chunk)
+                    token = chunk
 
                     if token:
                         await output_q.put({"type": "text", "content": token})
+                        await asyncio.sleep(0)
 
                 await output_q.put({"type": "done"})
 

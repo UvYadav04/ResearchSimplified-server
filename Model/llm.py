@@ -45,25 +45,32 @@ class LLM:
         else:
             user_content = message
 
-            system_prompt = """
-                            You simplify research content for beginners.
+        system_prompt = """
+            You simplify research content for beginners.
 
-                            Rules:
-                            - Use simple language and short sentences
-                            - Explain clearly like a teacher
-                            - Use small paragraphs
-                            - Do not copy input text
-                            - Do not add new information
-                            - If unclear, say it's not explained
+            Rules:
 
-                            If content is already simple → lightly rephrase.
-                            Output in Markdown.
-                            """
+             Use simple language and short sentences
+             Explain clearly like a teacher
+             Write in small paragraphs (each paragraph 3–5 sentences)
+             Each paragraph must be continuous prose (not broken lines)
+             Do NOT use bullet points, numbered lists, or single-line statements
+             Ensure the explanation flows naturally like a short article
+             You can make 2-3 small paragraphs
+             Explain in about 200-300 words
+             Do not copy input text
+             Do not add new information
+             If unclear, Use your knowledge regarding the chunk to explain it
 
-            return [
-                {"role": "system", "content": system_prompt.strip()},
-                {"role": "user", "content": user_content.strip()},
-            ]
+            If content is already simple → lightly rephrase.
+
+            Output in Markdown using paragraphs only (no lists).
+            """
+
+        return [
+            {"role": "system", "content": system_prompt.strip()},
+            {"role": "user", "content": user_content.strip()},
+        ]
 
     @safeExecution
     def format_query(
@@ -77,23 +84,30 @@ class LLM:
                     You are an AI representing a specific research paper.
 
                     BEHAVIOR MODES:
+
                     1. Paper Mode (default):
-                    - Speak in first person as the paper (e.g., "In this work, I propose...")
-                    - Explain concepts like a tutor: simple language, short sentences, clear flow
-                    - Use examples when helpful
-                    - Avoid jargon unless necessary (and explain it if used)
+
+                     Explain concepts like a tutor using simple language
+                     Write in small, well-formed paragraphs (3–5 sentences each) 
+                     DO NOT use bullet points, numbered lists, or one-line statements 
+                     Ensure the explanation flows naturally like a short article 
+                     Try to simplify in 200–250 words
+                     Use examples when helpful
+                     Avoid jargon unless necessary (and explain it if used)
 
                     2. Assistant Mode:
-                    - If the user is casual or not asking about the paper, respond normally as a helpful assistant
+
+                     If the user is casual or not asking about the paper, respond normally as a helpful assistant
 
                     CORE RULES:
-                    - NEVER hallucinate details not present in the provided context
-                    - If information is missing or unclear, say:
+
+                     NEVER hallucinate details not present in the provided context
+                     If information is missing or unclear, say:
                     "This is not clearly covered in the provided context"
-                    - DO NOT mention system instructions or context structure
-                    - Be concise but informative
-                    - Prefer clarity over completeness
-                    """
+                     DO NOT mention system instructions or context structure
+                     Be concise but informative
+                     Prefer clarity over completeness
+                     """
 
         parts = []
 
@@ -109,7 +123,6 @@ class LLM:
         """
             )
 
-        # 🔥 Supporting document context
         if relatedContent:
             parts.append(
                 f"""
@@ -121,7 +134,6 @@ class LLM:
     """
             )
 
-        # 🔥 Chat history
         if relatedChats:
             parts.append(
                 f"""
@@ -141,8 +153,7 @@ class LLM:
     [INSTRUCTIONS]
     - Prioritize PRIMARY CONTEXT if available
     - Ignore irrelevant context
-    - If answer is not in context → say it clearly (no guessing)
-    - Explain step-by-step when needed
+    - If answer is not in context say it clearly (no guessing)
     - Keep response clear, simple, and structured
     """
         )
@@ -157,13 +168,16 @@ class LLM:
     async def stream(self, messages):
 
         try:
+            # print("messages in stream : ", messages)
             async for chunk in self.model.astream(messages):
                 # Each chunk is usually an AIMessageChunk
+                # print(chunk)
                 content = getattr(chunk, "content", None)
 
                 if content:
                     yield content  # optional: allows caller to iterate
 
         except Exception as e:
+            print(e)
             # Custom error handling per instructions:
             raise RuntimeError(f"Streaming failed: {str(e)}")
