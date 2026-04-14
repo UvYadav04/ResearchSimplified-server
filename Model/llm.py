@@ -4,7 +4,7 @@ import os
 from dotenv import load_dotenv
 
 load_dotenv()
-from ..SafeExecution.safeExecution import safeExecution
+from SafeExecution.safeExecution import safeExecution
 
 
 class LLM:
