@@ -49,8 +49,7 @@ async def handleChat(request: Request, response: Response):
                 {"$inc": {"chatCounts": 1},},
             )
 
-        streamer = await handleQuery(query, request, chunkId)
-        return StreamingResponse(streamer(), media_type="text/plain")
+        return await handleQuery(query, request, chunkId)
     except Exception as e:
         print(e)
         return json.dumps({"type": "error", "message": str(e)}) + "<END>"

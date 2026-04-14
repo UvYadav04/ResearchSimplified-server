@@ -20,18 +20,17 @@ import json
 from Redis.redis import Redis
 from utils.idGenerator import generateId
 from PIL import Image
+from ..Model.llm import LLM
 
 
 @safeExecution
-async def classifyQuery(query: str,options):
+async def classifyQuery(query: str, options):
     headers = {
         "Authorization": f"Bearer {os.environ['HF_TOKEN']}",
     }
     payload = {
         "inputs": query,
-        "parameters": {
-            "candidate_labels": options
-        },
+        "parameters": {"candidate_labels": options},
     }
     response = requests.post(
         os.environ["CLASSIFICATION_API_URL"], headers=headers, json=payload
@@ -49,12 +48,11 @@ async def handleQuery(query: str, request: Request, chunkId: str | None):
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized call to chat"
         )
 
-    client = await get_client(request.app)
     redis_client = get_redis(request.app)
     embedder = get_fastembed(request.app)
     cohere = get_coherent(request.app)
     redis = Redis(redis=redis_client, cohere_client=cohere, session_id=session_id)
-    modelManager = Model(client)
+    llm = LLM()
 
     embedding = list(embedder.embed([query]))[0]
     relatedContext = redis.search(query, embedding, top_k=20, doc_type="chunk")
@@ -63,31 +61,25 @@ async def handleQuery(query: str, request: Request, chunkId: str | None):
     if chunkId is not None:
         contextChunk = redis.get_chunk_by_id(chunkId)
 
-    streamer = modelManager.stream_query(
-        query, relatedContext, relatedChat, contextChunk
-    )
+    messages = llm.format_query(query, relatedContext, relatedChat, contextChunk)
 
     async def streamer_generator():
         chatResponse = ""
-        for chunk in streamer:
-            choices = chunk.choices
-            if choices is None or len(choices) == 0:
-                continue
-            text = choices[0].delta.content
-            if text:
+
+        try:
+            async for text in llm.stream(messages):
                 chatResponse += text
+
                 yield json.dumps({"type": "text", "content": text}) + "<END>"
                 await asyncio.sleep(0)
-        embeddings = list(embedder.embed([query, chatResponse]))
-        redis.add_to_chat(
-            messages=[
-                {"message_id": generateId(), "text": query},
-                {"message_id": generateId(), "text": chatResponse},
-            ],
-            embeddings=embeddings,
-        )
 
-    return streamer_generator
+            yield json.dumps({"type": "done"}) + "<END>"
+
+        except Exception as e:
+            yield json.dumps({"type": "error", "message": str(e)}) + "<END>"
+            return
+
+    return StreamingResponse(streamer_generator(), media_type="text/plain")
 
 
 @safeExecution
