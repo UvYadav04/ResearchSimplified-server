@@ -5,6 +5,10 @@ from dotenv import load_dotenv
 
 load_dotenv()
 from SafeExecution.safeExecution import safeExecution
+import logging
+
+logger = logging.getLogger("LLM")
+logging.basicConfig(level=logging.INFO)
 
 
 class LLM:
@@ -22,16 +26,18 @@ class LLM:
         # Prevent re-initialization (important!)
         if hasattr(self, "_initialized") and self._initialized:
             return
+        logger.info("Initializing LLM with ChatGroq model.")
         self.model = ChatGroq(
             api_key=os.environ.get("GROQ_API_KEY"),
             model="moonshotai/kimi-k2-instruct",
             temperature=0,
         )
-
         self._initialized = True
+        logger.info("LLM initialized successfully.")
 
     @safeExecution
     def format_instruction(self, message: str, lastContent: str = ""):
+        logger.info("Formatting instruction for LLM prompt.")
         if lastContent:
             user_content = f"""
                     Previous:
@@ -80,6 +86,7 @@ class LLM:
         relatedChats: str,
         contextChunk: str | None,
     ):
+        logger.info("Formatting query for LLM prompt.")
         system_prompt = """
                     You are an AI representing a specific research paper.
 
@@ -166,18 +173,14 @@ class LLM:
         ]
 
     async def stream(self, messages):
-
+        logger.info("Starting streaming from LLM.")
         try:
-            # print("messages in stream : ", messages)
             async for chunk in self.model.astream(messages):
-                # Each chunk is usually an AIMessageChunk
-                # print(chunk)
+                # Do NOT log any loop item (no per-chunk/log here)
                 content = getattr(chunk, "content", None)
-
                 if content:
-                    yield content  # optional: allows caller to iterate
-
+                    yield content  # yield without logging
+            logger.info("Completed streaming from LLM.")
         except Exception as e:
-            print(e)
-            # Custom error handling per instructions:
+            logger.error(f"Streaming failed: {str(e)}")
             raise RuntimeError(f"Streaming failed: {str(e)}")
