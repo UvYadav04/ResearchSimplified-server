@@ -34,7 +34,7 @@ class PDFParser:
         embeddings = self.get_embeddings([c["text"] for c in chunks])
         self.redis.add_chunks_batch(chunks, embeddings)
 
-    def stream(self):
+    async def stream(self):
         logger.info("Starting PDF parsing and streaming chunks")
         chunks = []
         for index, page in enumerate(self.doc):
@@ -48,7 +48,7 @@ class PDFParser:
                     )
                 if result:
                     yield result
-                    asyncio.sleep(1)
+                await asyncio.sleep(1)
 
         logger.info("Finished iterating pages and blocks; embedding and storing chunks")
         asyncio.create_task(self._store_embeddings(chunks))
