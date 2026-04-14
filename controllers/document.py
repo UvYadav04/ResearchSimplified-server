@@ -79,7 +79,7 @@ async def uploadPaper(request: Request, file):
 
         async def handle_stream():
             logger.info("Started handle_stream coroutine in uploadPaper.")
-            for chunk in parser.stream():
+            async for chunk in parser.stream():
                 # Do NOT log or print chunk or any loop result here.
                 if not chunk:
                     continue
