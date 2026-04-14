@@ -86,6 +86,7 @@ async def uploadPaper(request: Request, file):
                         "Core content (methods, results, explanation, concepts)",
                         "Non-core content (authors, references, metadata, acknowledgments)",
                     )
+
                     response = await classifyQuery(
                         text,
                         options=[
@@ -93,7 +94,19 @@ async def uploadPaper(request: Request, file):
                             "Non-core content (authors, references, metadata, acknowledgments)",
                         ],
                     )
-                    query_type = response[0]["label"]
+
+                    if not response or "error" in response:
+                        print("Classification failed:", response)
+                        continue
+
+                    labels = response.get("labels", [])
+
+                    if not labels:
+                        print("No labels returned:", response)
+                        continue
+
+                    query_type = labels[0]  # ✅ correct
+
                     if query_type == options[1]:
                         continue
                     chunks.append(

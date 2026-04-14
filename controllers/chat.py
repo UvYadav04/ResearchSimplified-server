@@ -25,17 +25,38 @@ from Model.llm import LLM
 
 @safeExecution
 async def classifyQuery(query: str, options):
-    headers = {
-        "Authorization": f"Bearer {os.environ['HF_TOKEN']}",
-    }
-    payload = {
-        "inputs": query,
-        "parameters": {"candidate_labels": options},
-    }
-    response = requests.post(
-        os.environ["CLASSIFICATION_API_URL"], headers=headers, json=payload
-    )
-    return response.json()
+    try:
+        headers = {
+            "Authorization": f"Bearer {os.environ['HF_TOKEN']}",
+        }
+
+        payload = {
+            "inputs": query,
+            "parameters": {"candidate_labels": options},
+        }
+
+        response = requests.post(
+            os.environ["CLASSIFICATION_API_URL"],
+            headers=headers,
+            json=payload,
+            timeout=10,
+        )
+
+        # 🔥 Check status FIRST
+        if response.status_code != 200:
+            print("HF API error:", response.status_code, response.text)
+            return {"error": "HF API failed", "raw": response.text}
+
+        # 🔥 Check empty response
+        if not response.text.strip():
+            print("Empty response from HF")
+            return {"error": "Empty response"}
+
+        return response.json()
+
+    except Exception as e:
+        print("classifyQuery error:", str(e))
+        return {"error": str(e)}
 
 
 @safeExecution
