@@ -52,6 +52,7 @@ async def model_worker(input_q: asyncio.Queue, output_q: asyncio.Queue, model: M
                 await output_q.put({"type": "done"})
 
             except Exception as e:
+
                 await output_q.put({"type": "error", "content": str(e)})
                 return
 
