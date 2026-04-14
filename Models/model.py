@@ -1,4 +1,3 @@
-from google import genai
 import os
 from huggingface_hub import InferenceClient
 import redis

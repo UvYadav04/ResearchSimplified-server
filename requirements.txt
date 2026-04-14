@@ -9,3 +9,8 @@ pillow
 redis
 fastembed
 cohere
+dotenv
+pymongo
+langchain_groq
+google-genai
+nanoid
