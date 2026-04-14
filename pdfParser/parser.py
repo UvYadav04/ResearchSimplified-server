@@ -48,7 +48,7 @@ class PDFParser:
                     )
                 if result:
                     yield result
-                    asyncio.sleep(0)
+                    asyncio.sleep(1)
 
         logger.info("Finished iterating pages and blocks; embedding and storing chunks")
         asyncio.create_task(self._store_embeddings(chunks))
