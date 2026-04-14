@@ -4,8 +4,10 @@ from redis.commands.search.field import TextField, TagField, VectorField
 from redis.commands.search.index_definition import IndexDefinition, IndexType
 
 INDEX_NAME = "vector_json_idx"
+from SafeExecution.safeExecution import safeExecution
 
 
+@safeExecution
 def create_index(redis_client):
     try:
         redis_client.ft(INDEX_NAME).info()

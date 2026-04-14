@@ -96,6 +96,7 @@ async def authenticate(request: Request, call_next):
 
         return response
     except Exception as e:
+        print(e)
         return JSONResponse(
             status_code=500,
             content={

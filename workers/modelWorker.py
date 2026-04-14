@@ -43,15 +43,15 @@ async def model_worker(input_q: asyncio.Queue, output_q: asyncio.Queue, model: M
                 for chunk in generator:
                     token = extract_token(chunk)
                     if token:
-                        if "same" in token or "Same" in token:
-                            await output_q.put({"type": "sameContent", "content": None})
-                            await asyncio.sleep(0)
-                            break
                         await output_q.put({"type": "text", "content": token})
                         await asyncio.sleep(0)
                 await asyncio.sleep(0)
             except Exception as e:
-                print("Streaming failed:", e)
+                await output_q.put({
+                    "type": "error",
+                    "content": str(e)
+                })  
+                await asyncio.sleep(0)
             finally:
                 if hasattr(generator, "close"):
                     generator.close()

@@ -2,6 +2,7 @@ import fitz
 from .noise import is_noise
 import asyncio
 from utils.idGenerator import generateId
+from controllers.chat import classifyQuery
 
 
 class PDFParser:
@@ -36,8 +37,7 @@ class PDFParser:
                 if result:
                     yield result
 
-        embeddings = self.get_embeddings([chunk["chunk_id"] for chunk in chunks])
-        # print("created embeddings")
+        embeddings = self.get_embeddings([chunk["text"] for chunk in chunks])
         self.redis.add_chunks_batch(chunks,embeddings)
         yield {"type": "end"}  # simpler
 

@@ -5,6 +5,7 @@ import redis
 from openai import OpenAI
 from Redis.schema import create_index
 from fastembed import TextEmbedding
+import cohere
 
 
 def awake_gemini():
@@ -30,3 +31,14 @@ def awake_redis():
 
 def awake_fastembed():
      return TextEmbedding(model_name="BAAI/bge-small-en-v1.5")
+
+def awake_coherent():
+    return cohere.ClientV2(
+        api_key=os.environ["COHERE_API"]
+    )
+
+def awake_falAi():
+    return InferenceClient(
+        provider="fal-ai",
+        api_key=os.environ["HF_TOKEN"],
+    )

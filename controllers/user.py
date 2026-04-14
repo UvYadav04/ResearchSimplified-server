@@ -17,14 +17,12 @@ async def getUserInfo(request: Request):
                 detail="Failed to get info at the moment",
             )
         user_id = getattr(request.state, "user_id", None)
-        print("user_id", user_id)
         user_col = mongo.get_collection("users")
 
         if not user_id:
             return JSONResponse({"success": True, "userInfo": None})
 
         allUsers = user_col.find_one({})
-        print(allUsers)
 
         userInfo = user_col.find_one({"_id": ObjectId(user_id)})
 
@@ -52,11 +50,9 @@ async def login(request: Request, response: Response):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to login at the moment",
         )
-    print(user_col)
     body = await request.json()
     email = body["email"]
     name = body["name"]
-    print(email, name)
     userDetails = user_col.find_one({"email": email})
 
     if userDetails is None:

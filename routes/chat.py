@@ -1,39 +1,56 @@
 from fastapi import APIRouter, Request, Response
-from controllers.chat import classifyQuery,handleQuery
-from startupFunctions import get_gemini, get_client
+from controllers.chat import classifyQuery, handleQuery, generateImage
+from startupFunctions import get_gemini, get_client, get_mongo
 from fastapi.responses import StreamingResponse
+from fastapi import status, HTTPException
 import json
+from SafeExecution.safeExecution import safeExecution
+from bson import ObjectId
+import os
+
 router = APIRouter()
 
 
 @router.post("/chat/query")
 async def handleChat(request: Request, response: Response):
     try:
-        print("in chat query")
         body = await request.json()
         query = body["query"]
         chunkId = None
+        mongo = get_mongo(request.app)
+        user_db = mongo.get_collection("users")
+
         if "chunkId" in body:
             chunkId = body["chunkId"]
-        # we need to classify the query type here as : "sub-part query" | "summarize" | "image generation" | "follow-up"
-        # response = await classifyQuery(query)
-        # query_type = response[0]["label"]
+        user_id = getattr(request.state, "user_id", None)
+        if user_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Please login to send a query.",
+            )
+        obectified_id = None
+        if user_id:
+            obectified_id = ObjectId(user_id)
+        userInfo = None
+        if obectified_id:
+            userInfo = user_db.find_one({"_id": obectified_id})
 
-        # print(query_type)
+        if userInfo and userInfo.get("chatCounts", 0) >= int(
+            os.environ["USER_CHATS_ALLOWED"]
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_405_METHOD_NOT_ALLOWED,
+                detail="You can do only 7 queries for each document in free tier.",
+            )
+        
+        if user_db is not None and userInfo:
+            user_db.find_one_and_update(
+                {"_id": obectified_id},
+                {"$inc": {"chatCounts": 1},},
+            )
 
-        # if chunk_id extract the chunk of that id``
-
-        # match query_type:
-        #     case "A standalone general query":
-        streamer = await handleQuery(query,request,chunkId)
+        streamer = await handleQuery(query, request, chunkId)
         return StreamingResponse(streamer(), media_type="text/plain")
-
-        # case "A request to summarize content":
-        #     return {"type": "summarization"}
-        # case "A follow-up query depending on previous context":
-        #     return {"type": "follow_up"}
-        # case "A request to generate an image":
-        #     return {"type": "image_generation"}
     except Exception as e:
         print(e)
         return json.dumps({"type": "error", "message": str(e)}) + "<END>"

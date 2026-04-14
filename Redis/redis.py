@@ -1,12 +1,12 @@
 import numpy as np
 from SafeExecution.safeExecution import safeExecution
 from redis.commands.search.query import Query
-import numpy as np
 
 class Redis:
-    def __init__(self, redis, session_id):
+    def __init__(self, redis, cohere_client,session_id):
         self.redis = redis
         self.session = session_id
+        self.cohere = cohere_client
         self.index = "vector_json_idx"
 
     @safeExecution
@@ -31,7 +31,6 @@ class Redis:
             pipe.json().set(key, "$", doc)
 
         pipe.execute()
-        print("chats pushed successfully")
         return key
 
     def delete_session_chunks(self):
@@ -46,16 +45,13 @@ class Redis:
 
             if cursor == 0:
                 break
-        print("Old session chunks deleted")
-
 
     @safeExecution
     def _chunk_key(self,session_id:str, chunk_id):
         return f"jdoc:chunk:{session_id}:{chunk_id}"
-    
+
     @safeExecution
     def add_chunks_batch(self, chunks: list, embeddings: list):
-        print("session Id",self.session)
         self.delete_session_chunks()
         pipe = self.redis.pipeline()
 
@@ -77,7 +73,6 @@ class Redis:
             pipe.json().set(key, "$", doc)
 
         pipe.execute()
-        print("addedd successfully")
 
     @safeExecution
     def get_chunk_by_id(self, chunk_id: str):
@@ -95,19 +90,16 @@ class Redis:
         return doc.get("content")
 
     @safeExecution
-    def search(self, query_embedding, top_k=5, doc_type=None):
+    def search(self,query_original, query_embedding, top_k=5, doc_type=None):
         base_filter = f"@session_id:{{{self.session}}}"
 
         if doc_type:
             base_filter += f" @type:{{{doc_type}}}"
 
-
         if not isinstance(query_embedding, list):
             query_embedding = list(query_embedding)
 
-
         query_vector = np.array(query_embedding, dtype=np.float32).tobytes()
-
 
         query_str = f"({base_filter})=>[KNN {top_k} @embedding $vec AS score]"
 
@@ -119,23 +111,18 @@ class Redis:
             .dialect(2)
         )
 
-
-
         try:
             results = self.redis.ft("vector_json_idx").search(
                 query,
                 query_params={"vec": query_vector}
             )
         except Exception as e:
-            print("❌ Search error:", e)
+            print(e)
             return ""
-
-        print("Total results found:", results.total)
 
 
         output = []
         for doc in results.docs:
-            print("ID:", doc.id)
 
             output.append({
                 "id": doc.id,
@@ -144,6 +131,21 @@ class Redis:
                 "score": float(getattr(doc, "score", 0)),
             })
 
-        print("===== 🔍 SEARCH DEBUG END =====\n")
+        docs = [item["content"] for item in output]
 
-        return "\n".join([item["content"] for item in output])
+
+        if len(docs) > 0:
+            response = self.cohere.rerank(
+                model="rerank-v4.0-pro",
+                query=query_original,
+                documents=docs,
+                top_n=5,
+            )
+
+            indexes = [item.index for item in response.results]  # ✅ FIX
+
+
+            return "\n".join([docs[index] for index in indexes])
+        return "\n".join(docs)
+
+

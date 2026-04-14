@@ -1,6 +1,7 @@
 import json
+from SafeExecution.safeExecution import safeExecution
 
-
+@safeExecution
 async def stream_output(output_q):
     while True:
         result = await output_q.get()

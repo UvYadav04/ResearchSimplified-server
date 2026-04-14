@@ -1,13 +1,14 @@
 from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
 from dotenv import load_dotenv
+from SafeExecution.safeExecution import safeExecution
 load_dotenv()
 import certifi
 import os
 
 uri = os.environ.get("MONGO_URI")
 
-
+@safeExecution
 def connect_db():
     client = MongoClient(
         uri,

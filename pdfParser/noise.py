@@ -1,4 +1,6 @@
 import re
+from SafeExecution.safeExecution import safeExecution
+@safeExecution
 def is_noise(text: str) -> bool:
     if not text:
         return True

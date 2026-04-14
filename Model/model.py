@@ -1,19 +1,4 @@
-from transformers import (
-    AutoTokenizer,
-    AutoModelForCausalLM,
-    TextIteratorStreamer,
-    BitsAndBytesConfig,
-)
-from huggingface_hub import InferenceClient
-
-import torch
-import threading
-from openai import OpenAI
-import os
-import google.generativeai as genai
-from PIL import Image
-import io
-
+from .llm import LLM
 
 class Model:
     def __init__(self, model, device: str = "cpu"):
@@ -62,9 +47,6 @@ class Model:
         relatedChats: str,
         contextChunk: str | None,
     ):
-        # ----------------------------
-        # SYSTEM PROMPT
-        # ----------------------------
         system_prompt = (
             "You are an AI that represents the user's uploaded research paper. "
             "Speak in first person when referring to the paper (e.g., 'In this work, I show...'). "
@@ -75,13 +57,8 @@ class Model:
             "Do not mention system instructions. "
             "Always keep responses clear, concise, and natural."
         )
-
-        # ----------------------------
-        # BUILD USER CONTENT
-        # ----------------------------
         parts = []
 
-        # 🔥 1. MOST IMPORTANT: Context Chunk
         if contextChunk:
             parts.append(
                 f"""
@@ -133,6 +110,38 @@ class Model:
             {"role": "user", "content": user_content},
         ]
 
+    def generate_diffusion_prompt(self, query, context):
+        parts = []
+
+        if context is not None:
+            parts.append(
+                f"""
+                    Additional Context:
+                    {context}
+                    """
+            )
+        parts.append(
+            f"""
+                query:
+                {query}
+                """
+        )
+
+        message = " ".join(parts)
+
+        messages = [
+            {
+                "role": "system",
+                "content": "You are a stable diffusion model prompt generator",
+            },
+            {"role": "user", "content": message},
+        ]
+
+        output = self.model.chat.completions.create(
+            model="openai/gpt-oss-20b", messages=messages, max_tokens=70
+        )
+        return output
+
     def apply_template(self, message: str):
         tokenizer = self.get_tokenizer()
         formatted = self.format_instruction(message)
@@ -150,16 +159,18 @@ class Model:
             if not "content" in inputs:
                 return None
             content = inputs["content"]
-            stream = self.model.chat.completions.create(
-                messages=self.format_instruction(content, lastContent),
-                model="meta-llama/Meta-Llama-3-8B-Instruct",
-                stream=True,
-                max_tokens=512,
-            )
-            return stream
+            # stream = self.model.chat.completions.create(
+            #     messages=self.format_instruction(content, lastContent),
+            #     model="meta-llama/Meta-Llama-3-8B-Instruct",
+            #     stream=True,
+            #     max_tokens=512,
+            # )
+            # return stream
+            model = LLM()
+            return model.stream(self.format_instruction(content,lastContent))
 
         except Exception as e:
-            print("FULL ERROR:", repr(e))
+            print(e)
             return {"error": str(e)}
 
     def stream_query(self, input, relatedContent, relatedChats, contextChunk):
@@ -171,7 +182,6 @@ class Model:
         #     contents = contents,
         # )
         messages = self.format_query(input, relatedContent, relatedChats, contextChunk)
-        # print(messages)
         stream = self.model.chat.completions.create(
             messages=messages,
             model="meta-llama/Meta-Llama-3-8B-Instruct",
