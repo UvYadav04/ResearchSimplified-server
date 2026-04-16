@@ -29,8 +29,11 @@ class LLM:
         logger.info("Initializing LLM with ChatGroq model.")
         self.model = ChatGroq(
             api_key=os.environ.get("GROQ_API_KEY"),
-            model="moonshotai/kimi-k2-instruct",
+            model="llama-3.3-70b-versatile",
             temperature=0,
+            model_kwargs={
+                "tool_choice": "none",
+            },
         )
         self._initialized = True
         logger.info("LLM initialized successfully.")
