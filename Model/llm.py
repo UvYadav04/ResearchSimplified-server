@@ -27,7 +27,7 @@ class LLM:
     def __init__(self):
         if hasattr(self, "_initialized") and self._initialized:
             return
-
+        print(os.environ.get("OPENAI_API_KEY"))
         logger.info("Initializing LLM providers...")
 
         self.providers = [
