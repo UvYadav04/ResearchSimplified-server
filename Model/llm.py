@@ -62,7 +62,6 @@ class LLM:
         for attempt in range(retries):
             try:
                 async for chunk in model.astream(messages):
-                    print(chunk)
                     yield chunk
                 return
             except Exception as e:

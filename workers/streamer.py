@@ -11,6 +11,5 @@ async def stream_output(output_q):
         if result["type"] == "end" or result["type"] == "error":
             yield json.dumps(result)
             break
-        print("streaming : ", result)
         yield json.dumps(result) + "<END>"
         output_q.task_done()
