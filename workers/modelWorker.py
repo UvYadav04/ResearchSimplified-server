@@ -57,7 +57,7 @@ async def model_worker(input_q: asyncio.Queue, output_q: asyncio.Queue, model: M
 
                     if token:
                         await output_q.put({"type": "text", "content": token})
-                        await asyncio.sleep(0)
+                        await asyncio.sleep(1)
 
                 logger.info("Finished streaming tokens for this chunk.")
                 await output_q.put({"type": "done"})

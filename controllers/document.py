@@ -128,7 +128,7 @@ async def uploadPaper(request: Request, file):
                             "id": chunk["id"],
                         }
                     )
-                    await asyncio.sleep(2)
+                    await asyncio.sleep(1)
                 # elif chunk["type"] == "image":
                 #     data = chunk["data"]
                 #     image = Image.open(io.BytesIO(data))
